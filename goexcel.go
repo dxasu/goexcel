@@ -1,7 +1,7 @@
 package goexcel
 
 import (
-	"strings"
+	"os"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -83,31 +83,48 @@ func (f *ExcelHandle) SetRowCellByXY(x, y int, value ...interface{}) {
 	}
 }
 
-// err = f.SaveAs(fileName)
-func ExcelInit(fileName, sheet string) (file *ExcelHandle, err error) {
-	const fileNotExsitSuff = "The system cannot find the file specified."
+// 是否文件不存在
+func isFileNotExsit(fileName string) bool {
+	_, err := os.Stat(fileName)
+	return err != nil && os.IsNotExist(err)
+}
+
+// excel read
+func ExcelGet(fileName, sheet string) (file *ExcelHandle, close func() error, err error) {
 	var f *excelize.File
-	f, err = excelize.OpenFile(fileName)
-	if err != nil && strings.HasSuffix(err.Error(), fileNotExsitSuff) {
+
+	if isFileNotExsit(fileName) {
 		f = excelize.NewFile()
+	} else {
+		f, err = excelize.OpenFile(fileName)
+		if err != nil {
+			return
+		}
 	}
 
-	idx, err := f.NewSheet(sheet)
+	var idx int
+	idx, err = f.NewSheet(sheet)
 	if err != nil {
+		f.Close()
 		return
 	}
 
 	file = &ExcelHandle{f}
 	f.SetActiveSheet(idx)
+	close = f.Close
 	return
 }
 
+// excel run
 func ExcelRun(fileName, sheet string, fn ExcelFunc) (err error) {
-	const fileNotExsitSuff = "The system cannot find the file specified."
 	var f *excelize.File
-	f, err = excelize.OpenFile(fileName)
-	if err != nil && strings.HasSuffix(err.Error(), fileNotExsitSuff) {
+	if isFileNotExsit(fileName) {
 		f = excelize.NewFile()
+	} else {
+		f, err = excelize.OpenFile(fileName)
+		if err != nil {
+			return err
+		}
 	}
 
 	idx, err := f.NewSheet(sheet)
